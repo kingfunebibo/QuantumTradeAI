@@ -5,6 +5,173 @@ QuantumTradeAI is an AI-powered cryptocurrency trading platform designed to prov
 This repository contains the backend API built with **Node.js**, **Express**, **TypeScript**, **Prisma**, and **PostgreSQL**.
 
 ---
+# PostgreSQL Startup Guide
+
+QuantumTradeAI uses PostgreSQL as its database.
+
+Before starting the backend, ensure PostgreSQL is running.
+
+---
+
+## Step 1: Check if PostgreSQL is Running
+
+Open **PowerShell** and run:
+
+```powershell
+netstat -ano | findstr :5432
+```
+
+If PostgreSQL is running, you should see:
+
+```text
+TCP    0.0.0.0:5432     0.0.0.0:0     LISTENING
+```
+
+You can also verify the PostgreSQL processes:
+
+```powershell
+tasklist /FI "IMAGENAME eq postgres.exe"
+```
+
+If one or more `postgres.exe` processes are listed, PostgreSQL is already running.
+
+---
+
+## Step 2: If PostgreSQL Is Not Running
+
+Try starting the Windows service:
+
+```powershell
+Start-Service postgresql-x64-18
+```
+
+Or open **Services**:
+
+1. Press **Win + R**
+2. Type:
+
+```
+services.msc
+```
+
+3. Find:
+
+```
+postgresql-x64-18
+```
+
+4. Click **Start**.
+
+---
+
+## Step 3: Verify the Database
+
+Run:
+
+```bash
+npx prisma migrate status
+```
+
+Expected output:
+
+```text
+Database schema is up to date!
+```
+
+Or test the backend by logging in:
+
+```
+POST /api/auth/login
+```
+
+If login succeeds, the database connection is working correctly.
+
+---
+
+## Troubleshooting
+
+### Error
+
+```
+Can't reach database server at localhost:5432
+```
+
+Possible causes:
+
+- PostgreSQL is not running.
+- Incorrect `DATABASE_URL` in `.env`.
+- PostgreSQL is using a different port.
+
+---
+
+### Error
+
+```
+lock file "postmaster.pid" already exists
+```
+
+This usually indicates PostgreSQL is already running or it was not shut down cleanly.
+
+Before deleting any files, verify that PostgreSQL is actually running:
+
+```powershell
+netstat -ano | findstr :5432
+```
+
+and
+
+```powershell
+tasklist /FI "IMAGENAME eq postgres.exe"
+```
+
+If PostgreSQL is already listening on port **5432**, do **not** delete the `postmaster.pid` file.
+
+---
+
+## Daily Startup Checklist
+
+1. Open the project:
+
+```text
+QuantumTradeAI/backend
+```
+
+2. Verify PostgreSQL:
+
+```powershell
+netstat -ano | findstr :5432
+```
+
+3. Start the backend:
+
+```bash
+npm run dev
+```
+
+4. Open:
+
+```
+http://localhost:3000
+```
+
+Expected response:
+
+```json
+{
+  "app": "QuantumTradeAI Backend",
+  "status": "Running",
+  "version": "1.0.0"
+}
+```
+
+5. Test authentication:
+
+```
+POST /api/auth/login
+```
+
+If login returns a JWT token, your backend and database are ready.
+
 
 # Features
 

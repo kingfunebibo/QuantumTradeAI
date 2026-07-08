@@ -1,6 +1,7 @@
 import { Role } from "@prisma/client";
 
 import { prisma } from "../config/prisma";
+import { userService } from "../users/user.service";
 
 export class AdminService {
   async getDashboardStats() {
@@ -45,6 +46,16 @@ export class AdminService {
       admins,
       superAdmins,
     };
+  }
+
+  async getUsers(options: {
+    page: number;
+    limit: number;
+    search?: string;
+    role?: Role;
+    isActive?: boolean;
+  }) {
+    return userService.listUsers(options);
   }
 }
 

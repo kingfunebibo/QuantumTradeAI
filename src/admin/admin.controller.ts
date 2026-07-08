@@ -1,3 +1,4 @@
+import { Role } from "@prisma/client";
 import { Request, Response } from "express";
 
 import { asyncHandler } from "../utils/asyncHandler";
@@ -15,6 +16,43 @@ export class AdminController {
         res,
         stats,
         "Dashboard statistics retrieved successfully",
+      );
+    },
+  );
+
+  users = asyncHandler(
+    async (req: Request, res: Response) => {
+      const page = Number(req.query.page ?? 1);
+      const limit = Number(req.query.limit ?? 20);
+
+      const search =
+        typeof req.query.search === "string"
+          ? req.query.search
+          : undefined;
+
+      const role =
+        typeof req.query.role === "string"
+          ? (req.query.role as Role)
+          : undefined;
+
+      const isActive =
+        typeof req.query.isActive === "string"
+          ? req.query.isActive === "true"
+          : undefined;
+
+      const result =
+        await adminService.getUsers({
+          page,
+          limit,
+          search,
+          role,
+          isActive,
+        });
+
+      return successResponse(
+        res,
+        result,
+        "Users retrieved successfully",
       );
     },
   );

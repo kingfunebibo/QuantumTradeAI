@@ -1,4 +1,4 @@
-import { Role } from "@prisma/client";
+import { Prisma, Role } from "@prisma/client";
 
 import { prisma } from "../config/prisma";
 import type { RegisterInput } from "../auth/auth.validation";
@@ -34,6 +34,9 @@ export class UserService {
         firstName: true,
         lastName: true,
         role: true,
+        isActive: true,
+        emailVerified: true,
+        lastLoginAt: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -60,10 +63,99 @@ export class UserService {
         firstName: true,
         lastName: true,
         role: true,
+        isActive: true,
+        emailVerified: true,
+        lastLoginAt: true,
         createdAt: true,
         updatedAt: true,
       },
     });
+  }
+
+  // Admin - List users
+  async listUsers(options: {
+    page: number;
+    limit: number;
+    search?: string;
+    role?: Role;
+    isActive?: boolean;
+  }) {
+    const {
+      page,
+      limit,
+      search,
+      role,
+      isActive,
+    } = options;
+
+    const where: Prisma.UserWhereInput = {};
+
+    if (search) {
+      where.OR = [
+        {
+          email: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+        {
+          firstName: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+        {
+          lastName: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+      ];
+    }
+
+    if (role) {
+      where.role = role;
+    }
+
+    if (typeof isActive === "boolean") {
+      where.isActive = isActive;
+    }
+
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: {
+          createdAt: "desc",
+        },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          isActive: true,
+          emailVerified: true,
+          lastLoginAt: true,
+          createdAt: true,
+        },
+      }),
+
+      prisma.user.count({
+        where,
+      }),
+    ]);
+
+    return {
+      users,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 }
 

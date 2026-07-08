@@ -1,3 +1,5 @@
+import { Role } from "@prisma/client";
+
 import { prisma } from "../config/prisma";
 import type { RegisterInput } from "../auth/auth.validation";
 
@@ -50,7 +52,7 @@ export class UserService {
         password: data.password,
         firstName: data.firstName,
         lastName: data.lastName,
-        role: "USER",
+        role: Role.USER,
       },
       select: {
         id: true,

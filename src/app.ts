@@ -3,15 +3,22 @@ import cors from "cors";
 
 import authRoutes from "./auth/auth.routes";
 import marketRoutes from "./routes/market.routes";
+
+import { requestLogger } from "./middleware/logger.middleware";
 import { errorHandler } from "./middleware/error.middleware";
 
 const app = express();
 
-// Middleware
+// ==========================
+// Global Middleware
+// ==========================
 app.use(cors());
 app.use(express.json());
+app.use(requestLogger);
 
+// ==========================
 // Health Check
+// ==========================
 app.get("/", (_req, res) => {
   res.json({
     app: "QuantumTradeAI Backend",
@@ -20,11 +27,16 @@ app.get("/", (_req, res) => {
   });
 });
 
-// Routes
+// ==========================
+// API Routes
+// ==========================
 app.use("/api/auth", authRoutes);
 app.use("/api/markets", marketRoutes);
 
-// Global Error Handler (Must be the last middleware)
+// ==========================
+// Global Error Handler
+// Must always be the last middleware
+// ==========================
 app.use(errorHandler);
 
 export default app;

@@ -1,5 +1,6 @@
 import bcrypt from "bcrypt";
 import { generateAccessToken } from "../config/jwt";
+import { AppError } from "../errors/AppError";
 import { userService } from "../users/user.service";
 import type { LoginInput, RegisterInput } from "./auth.validation";
 
@@ -8,7 +9,7 @@ export class AuthService {
     const existingUser = await userService.findByEmail(data.email);
 
     if (existingUser) {
-      throw new Error("Email already exists");
+      throw new AppError("Email already exists", 409);
     }
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
@@ -34,7 +35,7 @@ export class AuthService {
     const user = await userService.findByEmailForLogin(data.email);
 
     if (!user) {
-      throw new Error("Invalid credentials");
+      throw new AppError("Invalid credentials", 401);
     }
 
     const validPassword = await bcrypt.compare(
@@ -43,7 +44,7 @@ export class AuthService {
     );
 
     if (!validPassword) {
-      throw new Error("Invalid credentials");
+      throw new AppError("Invalid credentials", 401);
     }
 
     const token = generateAccessToken({
@@ -53,6 +54,10 @@ export class AuthService {
     });
 
     const publicUser = await userService.findPublicById(user.id);
+
+    if (!publicUser) {
+      throw new AppError("User not found", 404);
+    }
 
     return {
       user: publicUser,

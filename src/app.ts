@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 
 import authRoutes from "./auth/auth.routes";
+import adminRoutes from "./admin/admin.routes";
 import marketRoutes from "./routes/market.routes";
 
 import { requestLogger } from "./middleware/logger.middleware";
@@ -31,6 +32,7 @@ app.get("/", (_req, res) => {
 // API Routes
 // ==========================
 app.use("/api/auth", authRoutes);
+app.use("/api/admin", adminRoutes);
 app.use("/api/markets", marketRoutes);
 
 // ==========================

@@ -3,8 +3,12 @@ import { authService } from "./auth.service";
 import { loginSchema, registerSchema } from "./auth.validation";
 import { AuthRequest } from "../middleware/auth.middleware";
 import { userService } from "../users/user.service";
-import { asyncHandler } from "../utils/asyncHandler";
 import { AppError } from "../errors/AppError";
+import { asyncHandler } from "../utils/asyncHandler";
+import {
+  createdResponse,
+  successResponse,
+} from "../utils/response";
 
 export class AuthController {
   register = asyncHandler(async (req: Request, res: Response) => {
@@ -12,7 +16,11 @@ export class AuthController {
 
     const result = await authService.register(data);
 
-    return res.status(201).json(result);
+    return createdResponse(
+      res,
+      result,
+      "User registered successfully",
+    );
   });
 
   login = asyncHandler(async (req: Request, res: Response) => {
@@ -20,7 +28,11 @@ export class AuthController {
 
     const result = await authService.login(data);
 
-    return res.status(200).json(result);
+    return successResponse(
+      res,
+      result,
+      "Login successful",
+    );
   });
 
   me = asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -34,9 +46,11 @@ export class AuthController {
       throw new AppError("User not found", 404);
     }
 
-    return res.status(200).json({
+    return successResponse(
+      res,
       user,
-    });
+      "User profile retrieved successfully",
+    );
   });
 }
 

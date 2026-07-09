@@ -1,5 +1,6 @@
 import { Role } from "@prisma/client";
 
+import { AppError } from "../errors/AppError";
 import { prisma } from "../config/prisma";
 import { userService } from "../users/user.service";
 
@@ -56,6 +57,16 @@ export class AdminService {
     isActive?: boolean;
   }) {
     return userService.listUsers(options);
+  }
+
+  async getUserById(id: string) {
+    const user = await userService.getUserById(id);
+
+    if (!user) {
+      throw new AppError("User not found", 404);
+    }
+
+    return user;
   }
 }
 

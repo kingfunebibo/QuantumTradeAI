@@ -17,21 +17,19 @@ export async function seedSuperAdmin() {
     );
   }
 
-  const existingAdmin = await prisma.user.findUnique({
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  await prisma.user.upsert({
     where: {
       email,
     },
-  });
-
-  if (existingAdmin) {
-    console.log("ℹ️ Super Admin already exists.");
-    return;
-  }
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-  await prisma.user.create({
-    data: {
+    update: {
+      password: hashedPassword,
+      firstName,
+      lastName,
+      role: Role.SUPER_ADMIN,
+    },
+    create: {
       email,
       password: hashedPassword,
       firstName,
@@ -40,5 +38,5 @@ export async function seedSuperAdmin() {
     },
   });
 
-  console.log("✅ Super Admin created successfully.");
+  console.log("✅ Super Admin created/updated successfully.");
 }

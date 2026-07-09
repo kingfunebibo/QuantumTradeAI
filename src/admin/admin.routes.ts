@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { Role } from "@prisma/client";
 
-import { adminController } from "./admin.controller";
-
+import { ADMIN_ROLES } from "../constants/roles.constants";
 import { authenticate } from "../middleware/auth.middleware";
 import { authorize } from "../middleware/authorize.middleware";
+
+import { adminController } from "./admin.controller";
 
 const router = Router();
 
@@ -14,7 +14,7 @@ const router = Router();
 router.get(
   "/dashboard",
   authenticate,
-  authorize(Role.ADMIN, Role.SUPER_ADMIN),
+  authorize(...ADMIN_ROLES),
   adminController.dashboard,
 );
 
@@ -24,8 +24,15 @@ router.get(
 router.get(
   "/users",
   authenticate,
-  authorize(Role.ADMIN, Role.SUPER_ADMIN),
+  authorize(...ADMIN_ROLES),
   adminController.users,
+);
+
+router.get(
+  "/users/:id",
+  authenticate,
+  authorize(...ADMIN_ROLES),
+  adminController.user,
 );
 
 export default router;

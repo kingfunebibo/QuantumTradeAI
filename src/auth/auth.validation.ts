@@ -14,11 +14,15 @@ export const registerSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  email: z.email(),
+  email: z.email("Invalid email address"),
 
   password: z.string().min(8),
 });
 
-export type RegisterInput = z.infer<typeof registerSchema>;
+export type RegisterInput = z.infer<
+  typeof registerSchema
+>;
 
-export type LoginInput = z.infer<typeof loginSchema>;
+export type LoginInput = z.infer<
+  typeof loginSchema
+>;

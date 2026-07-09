@@ -157,6 +157,28 @@ export class UserService {
       },
     };
   }
+
+  // Admin - Get user by ID
+  async getUserById(id: string) {
+    return prisma.user.findUnique({
+      where: {
+        id,
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        isActive: true,
+        emailVerified: true,
+        lastLoginAt: true,
+        lastLoginIp: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
 }
 
 export const userService = new UserService();

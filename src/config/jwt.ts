@@ -2,7 +2,7 @@ import "dotenv/config";
 import jwt from "jsonwebtoken";
 import { Role } from "@prisma/client";
 
-const JWT_EXPIRES_IN = "1h";
+import { JWT_EXPIRES_IN } from "../constants/auth.constants";
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -27,5 +27,8 @@ export function generateAccessToken(payload: JwtPayload) {
 }
 
 export function verifyAccessToken(token: string) {
-  return jwt.verify(token, getJwtSecret()) as JwtPayload;
+  return jwt.verify(
+    token,
+    getJwtSecret(),
+  ) as JwtPayload;
 }

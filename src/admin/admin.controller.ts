@@ -56,6 +56,24 @@ export class AdminController {
       );
     },
   );
+
+  user = asyncHandler(
+    async (
+      req: Request<{ id: string }>,
+      res: Response,
+    ) => {
+      const { id } = req.params;
+
+      const result =
+        await adminService.getUserById(id);
+
+      return successResponse(
+        res,
+        result,
+        "User retrieved successfully",
+      );
+    },
+  );
 }
 
 export const adminController = new AdminController();

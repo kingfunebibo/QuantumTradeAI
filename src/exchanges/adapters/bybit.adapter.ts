@@ -1,27 +1,36 @@
 import {
-  Balance,
   ExchangeAdapter,
+  ExchangeBalance,
   ExchangeCredentials,
-  OrderRequest,
-  OrderResult,
-} from "../interfaces/exchange.interface";
+  ExchangeOrderRequest,
+  ExchangeOrderResult,
+  ExchangeTicker,
+} from "./exchange.adapter";
 
-export class BybitAdapter
-  implements ExchangeAdapter
-{
-  async connect(
-    _credentials: ExchangeCredentials,
-  ): Promise<void> {
+export class BybitAdapter implements ExchangeAdapter {
+  constructor(
+    private readonly credentials: ExchangeCredentials,
+  ) {}
+
+  async testConnection(): Promise<boolean> {
+    // Live Bybit V5 authentication
+    // will be implemented next.
+    return true;
+  }
+
+  async getBalances(): Promise<ExchangeBalance[]> {
     throw new Error("Not implemented.");
   }
 
-  async getBalances(): Promise<Balance[]> {
+  async getTicker(
+    _symbol: string,
+  ): Promise<ExchangeTicker> {
     throw new Error("Not implemented.");
   }
 
   async placeOrder(
-    _order: OrderRequest,
-  ): Promise<OrderResult> {
+    _order: ExchangeOrderRequest,
+  ): Promise<ExchangeOrderResult> {
     throw new Error("Not implemented.");
   }
 
@@ -34,13 +43,13 @@ export class BybitAdapter
 
   async getOpenOrders(
     _symbol?: string,
-  ): Promise<OrderResult[]> {
+  ): Promise<ExchangeOrderResult[]> {
     throw new Error("Not implemented.");
   }
 
   async getOrderHistory(
     _symbol?: string,
-  ): Promise<OrderResult[]> {
+  ): Promise<ExchangeOrderResult[]> {
     throw new Error("Not implemented.");
   }
 }

@@ -7,6 +7,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+//
+// ==========================
+// Enums
+// ==========================
+//
+
 enum Role {
   USER
   MODERATOR
@@ -14,84 +20,180 @@ enum Role {
   SUPER_ADMIN
 }
 
-model User {
-  // ==========================
-  // Primary Key
-  // ==========================
-  id String @id @default(cuid())
+enum ExchangeType {
+  BYBIT
+  BINANCE
+  KUCOIN
+  MEXC
+  BITGET
+  GATE
+}
 
-  // ==========================
-  // Authentication
-  // ==========================
+enum ExchangeAccountType {
+  SPOT
+  FUTURES
+  UNIFIED
+  MARGIN
+  OPTIONS
+}
+
+//
+// ==========================
+// User Management
+// ==========================
+//
+
+model User {
+  id       String @id @default(cuid())
   email    String @unique
   password String
 
-  // ==========================
-  // Profile
-  // ==========================
   firstName String?
   lastName  String?
 
-  // ==========================
-  // Authorization
-  // ==========================
   role Role @default(USER)
 
   // ==========================
   // Account Status
   // ==========================
+
   isActive      Boolean @default(true)
   emailVerified Boolean @default(false)
 
   // ==========================
   // Security
   // ==========================
+
   lastLoginAt DateTime?
   lastLoginIp String?
 
   // ==========================
-  // Audit Relationship
+  // Relations
   // ==========================
-  auditLogs AuditLog[] @relation("AuditActor")
+
+  auditLogs        AuditLog[]        @relation("AuditActor")
+  exchangeAccounts ExchangeAccount[]
 
   // ==========================
-  // Timestamps
+  // Audit
   // ==========================
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
+//
+// ==========================
+// Audit Logs
+// ==========================
+//
+
 model AuditLog {
-  // ==========================
-  // Primary Key
-  // ==========================
   id String @id @default(cuid())
 
-  // ==========================
-  // Actor
-  // ==========================
   actorId String
-  actor   User   @relation("AuditActor", fields: [actorId], references: [id])
 
-  // ==========================
-  // Event
-  // ==========================
-  action     String
-  resource   String
+  actor User @relation("AuditActor", fields: [actorId], references: [id])
+
+  action String
+
+  resource String
+
   resourceId String?
 
-  // ==========================
-  // Metadata
-  // ==========================
   details Json?
 
-  // ==========================
-  // Timestamp
-  // ==========================
   createdAt DateTime @default(now())
 
   @@index([actorId])
-  @@index([action])
   @@index([resource])
-  @@index([createdAt])
+  @@index([action])
+}
+
+//
+// ==========================
+// Exchange Accounts
+// ==========================
+//
+
+model ExchangeAccount {
+  id String @id @default(cuid())
+
+  // ==========================
+  // Owner
+  // ==========================
+
+  userId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // ==========================
+  // Exchange Information
+  // ==========================
+
+  exchange ExchangeType
+
+  accountType ExchangeAccountType @default(SPOT)
+
+  accountName String
+
+  nickname String?
+
+  // ==========================
+  // Account Settings
+  // ==========================
+
+  isActive Boolean @default(true)
+
+  testnet Boolean @default(false)
+
+  lastSyncedAt DateTime?
+
+  // ==========================
+  // Relations
+  // ==========================
+
+  credential ExchangeCredential?
+
+  // ==========================
+  // Audit
+  // ==========================
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([exchange])
+  @@index([accountType])
+}
+
+//
+// ==========================
+// Exchange Credentials
+// ==========================
+//
+
+model ExchangeCredential {
+  id String @id @default(cuid())
+
+  exchangeAccountId String @unique
+
+  exchangeAccount ExchangeAccount @relation(fields: [exchangeAccountId], references: [id], onDelete: Cascade)
+
+  // ==========================
+  // Encrypted Credentials
+  // ==========================
+
+  encryptedApiKey String
+
+  encryptedSecret String
+
+  encryptedPassphrase String?
+
+  // ==========================
+  // Audit
+  // ==========================
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

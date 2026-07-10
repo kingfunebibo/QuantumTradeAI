@@ -1,10 +1,10 @@
 import { Router } from "express";
-
-import { ADMIN_ROLES } from "../constants/roles.constants";
-import { authenticate } from "../middleware/auth.middleware";
-import { authorize } from "../middleware/authorize.middleware";
+import { Role } from "@prisma/client";
 
 import { adminController } from "./admin.controller";
+
+import { authenticate } from "../middleware/auth.middleware";
+import { authorize } from "../middleware/authorize.middleware";
 
 const router = Router();
 
@@ -14,7 +14,7 @@ const router = Router();
 router.get(
   "/dashboard",
   authenticate,
-  authorize(...ADMIN_ROLES),
+  authorize(Role.ADMIN, Role.SUPER_ADMIN),
   adminController.dashboard,
 );
 
@@ -24,15 +24,46 @@ router.get(
 router.get(
   "/users",
   authenticate,
-  authorize(...ADMIN_ROLES),
+  authorize(Role.ADMIN, Role.SUPER_ADMIN),
   adminController.users,
 );
 
 router.get(
   "/users/:id",
   authenticate,
-  authorize(...ADMIN_ROLES),
+  authorize(Role.ADMIN, Role.SUPER_ADMIN),
   adminController.user,
+);
+
+router.patch(
+  "/users/:id/role",
+  authenticate,
+  authorize(Role.SUPER_ADMIN),
+  adminController.updateRole,
+);
+
+router.patch(
+  "/users/:id/status",
+  authenticate,
+  authorize(Role.SUPER_ADMIN),
+  adminController.updateStatus,
+);
+
+// ==========================
+// Audit Logs
+// ==========================
+router.get(
+  "/audit-logs",
+  authenticate,
+  authorize(Role.ADMIN, Role.SUPER_ADMIN),
+  adminController.auditLogs,
+);
+
+router.get(
+  "/audit-logs/:id",
+  authenticate,
+  authorize(Role.ADMIN, Role.SUPER_ADMIN),
+  adminController.auditLog,
 );
 
 export default router;

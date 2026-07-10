@@ -15,23 +15,83 @@ enum Role {
 }
 
 model User {
-  id              String   @id @default(cuid())
-  email           String   @unique
-  password        String
-  firstName       String?
-  lastName        String?
+  // ==========================
+  // Primary Key
+  // ==========================
+  id String @id @default(cuid())
 
-  role            Role     @default(USER)
+  // ==========================
+  // Authentication
+  // ==========================
+  email    String @unique
+  password String
 
+  // ==========================
+  // Profile
+  // ==========================
+  firstName String?
+  lastName  String?
+
+  // ==========================
+  // Authorization
+  // ==========================
+  role Role @default(USER)
+
+  // ==========================
   // Account Status
-  isActive        Boolean  @default(true)
-  emailVerified   Boolean  @default(false)
+  // ==========================
+  isActive      Boolean @default(true)
+  emailVerified Boolean @default(false)
 
+  // ==========================
   // Security
-  lastLoginAt     DateTime?
-  lastLoginIp     String?
+  // ==========================
+  lastLoginAt DateTime?
+  lastLoginIp String?
 
-  // Audit
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  // ==========================
+  // Audit Relationship
+  // ==========================
+  auditLogs AuditLog[] @relation("AuditActor")
+
+  // ==========================
+  // Timestamps
+  // ==========================
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  // ==========================
+  // Primary Key
+  // ==========================
+  id String @id @default(cuid())
+
+  // ==========================
+  // Actor
+  // ==========================
+  actorId String
+  actor   User   @relation("AuditActor", fields: [actorId], references: [id])
+
+  // ==========================
+  // Event
+  // ==========================
+  action     String
+  resource   String
+  resourceId String?
+
+  // ==========================
+  // Metadata
+  // ==========================
+  details Json?
+
+  // ==========================
+  // Timestamp
+  // ==========================
+  createdAt DateTime @default(now())
+
+  @@index([actorId])
+  @@index([action])
+  @@index([resource])
+  @@index([createdAt])
 }

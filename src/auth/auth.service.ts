@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 
 import { BCRYPT_SALT_ROUNDS } from "../constants/auth.constants";
 import { generateAccessToken } from "../config/jwt";
+import { prisma } from "../config/prisma";
 import { AppError } from "../errors/AppError";
 import { userService } from "../users/user.service";
 
@@ -59,6 +60,28 @@ export class AuthService {
     if (!validPassword) {
       throw new AppError("Invalid credentials", 401);
     }
+
+    // ==========================
+    // Prevent suspended users
+    // ==========================
+    if (!user.isActive) {
+      throw new AppError(
+        "Your account has been suspended. Please contact support.",
+        403,
+      );
+    }
+
+    // ==========================
+    // Update last login time
+    // ==========================
+    await prisma.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        lastLoginAt: new Date(),
+      },
+    });
 
     const token = generateAccessToken({
       id: user.id,

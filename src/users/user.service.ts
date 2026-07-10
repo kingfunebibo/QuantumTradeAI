@@ -179,6 +179,62 @@ export class UserService {
       },
     });
   }
+
+  // Admin - Update user role
+  async updateRole(
+    id: string,
+    role: Role,
+  ) {
+    return prisma.user.update({
+      where: {
+        id,
+      },
+      data: {
+        role,
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        isActive: true,
+        emailVerified: true,
+        lastLoginAt: true,
+        lastLoginIp: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  // Admin - Update user status
+  async updateStatus(
+    id: string,
+    isActive: boolean,
+  ) {
+    return prisma.user.update({
+      where: {
+        id,
+      },
+      data: {
+        isActive,
+      },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        isActive: true,
+        emailVerified: true,
+        lastLoginAt: true,
+        lastLoginIp: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
 }
 
 export const userService = new UserService();

@@ -25,6 +25,26 @@ router.get("/", exchangeController.list);
 // Get Exchange By ID
 router.get("/:id", exchangeController.get);
 
+// ------------------------------------------
+// Live Exchange Data
+// ------------------------------------------
+
+// Get Wallet Balances
+router.get(
+  "/:id/balances",
+  exchangeController.getBalances,
+);
+
+// Test Exchange Connection
+router.post(
+  "/:id/test",
+  exchangeController.testConnection,
+);
+
+// ------------------------------------------
+// Exchange Management
+// ------------------------------------------
+
 // Update Exchange
 router.patch("/:id", exchangeController.update);
 
@@ -32,12 +52,6 @@ router.patch("/:id", exchangeController.update);
 router.patch(
   "/:id/status",
   exchangeController.updateStatus,
-);
-
-// Test Exchange Connection
-router.post(
-  "/:id/test",
-  exchangeController.testConnection,
 );
 
 // Delete Exchange

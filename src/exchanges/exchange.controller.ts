@@ -218,6 +218,37 @@ export class ExchangeController {
       );
     },
   );
+
+  // ==========================
+  // Get Wallet Balances
+  // ==========================
+  getBalances = asyncHandler(
+    async (req: Request, res: Response) => {
+      const id =
+        typeof req.params.id === "string"
+          ? req.params.id
+          : req.params.id?.[0];
+
+      if (!id) {
+        throw new AppError(
+          "Exchange account ID is required.",
+          400,
+        );
+      }
+
+      const result =
+        await exchangeService.getBalances(
+          req.user!.id,
+          id,
+        );
+
+      return successResponse(
+        res,
+        result,
+        "Wallet balances retrieved successfully.",
+      );
+    },
+  );
 }
 
 export const exchangeController =

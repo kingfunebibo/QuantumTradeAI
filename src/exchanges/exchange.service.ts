@@ -7,6 +7,7 @@ import { prisma } from "../config/prisma";
 import { AppError } from "../errors/AppError";
 import { encryptionService } from "../security/encryption.service";
 
+import { ExchangeFactory } from "./exchange.factory";
 import type {
   CreateExchangeInput,
   UpdateExchangeInput,
@@ -39,17 +40,11 @@ export class ExchangeService {
     return prisma.exchangeAccount.create({
       data: {
         userId,
-
-        exchange:
-          data.exchange as ExchangeType,
-
+        exchange: data.exchange as ExchangeType,
         accountType:
           data.accountType as ExchangeAccountType,
-
         accountName: data.accountName,
-
         nickname: data.nickname,
-
         testnet: data.testnet,
 
         credential: {
@@ -85,10 +80,7 @@ export class ExchangeService {
   // ==========================
   async list(userId: string) {
     return prisma.exchangeAccount.findMany({
-      where: {
-        userId,
-      },
-
+      where: { userId },
       orderBy: {
         createdAt: "desc",
       },
@@ -131,22 +123,16 @@ export class ExchangeService {
     await this.getById(userId, id);
 
     return prisma.exchangeAccount.update({
-      where: {
-        id,
-      },
+      where: { id },
 
       data: {
         accountName: data.accountName,
-
         nickname: data.nickname,
-
         testnet: data.testnet,
 
         accountType: data.accountType
           ? (data.accountType as ExchangeAccountType)
           : undefined,
-
-        isActive: undefined,
       },
     });
   }
@@ -162,9 +148,7 @@ export class ExchangeService {
     await this.getById(userId, id);
 
     return prisma.exchangeAccount.update({
-      where: {
-        id,
-      },
+      where: { id },
 
       data: {
         isActive,
@@ -182,9 +166,7 @@ export class ExchangeService {
     await this.getById(userId, id);
 
     await prisma.exchangeAccount.delete({
-      where: {
-        id,
-      },
+      where: { id },
     });
 
     return {
@@ -225,39 +207,81 @@ export class ExchangeService {
       );
     }
 
-    const apiKey =
-      encryptionService.decrypt(
-        account.credential.encryptedApiKey,
-      );
+    const adapter =
+      ExchangeFactory.create({
+        exchange: account.exchange,
+        encryptedApiKey:
+          account.credential.encryptedApiKey,
+        encryptedSecret:
+          account.credential.encryptedSecret,
+        encryptedPassphrase:
+          account.credential
+            .encryptedPassphrase,
+        testnet: account.testnet,
+      });
 
-    const apiSecret =
-      encryptionService.decrypt(
-        account.credential.encryptedSecret,
-      );
-
-    const passphrase =
-      account.credential.encryptedPassphrase
-        ? encryptionService.decrypt(
-            account.credential
-              .encryptedPassphrase,
-          )
-        : undefined;
+    const connected =
+      await adapter.testConnection();
 
     return {
-      success: true,
+      success: connected,
       exchange: account.exchange,
-      accountType:
-        account.accountType,
-      accountName:
-        account.accountName,
-      apiKeyLength: apiKey.length,
-      apiSecretLength:
-        apiSecret.length,
-      hasPassphrase:
-        !!passphrase,
-      message:
-        "Credentials decrypted successfully. Exchange connectivity will be implemented next.",
+      accountType: account.accountType,
+      accountName: account.accountName,
+      testnet: account.testnet,
+      message: connected
+        ? "Successfully connected to the exchange."
+        : "Failed to connect to the exchange.",
     };
+  }
+
+  // ==========================
+  // Get Wallet Balances
+  // ==========================
+  async getBalances(
+    userId: string,
+    id: string,
+  ) {
+    const account =
+      await prisma.exchangeAccount.findFirst({
+        where: {
+          id,
+          userId,
+        },
+
+        include: {
+          credential: true,
+        },
+      });
+
+    if (!account) {
+      throw new AppError(
+        "Exchange account not found.",
+        404,
+      );
+    }
+
+    if (!account.credential) {
+      throw new AppError(
+        "Exchange credentials not found.",
+        404,
+      );
+    }
+
+    const adapter =
+      ExchangeFactory.create({
+        exchange: account.exchange,
+        encryptedApiKey:
+          account.credential.encryptedApiKey,
+        encryptedSecret:
+          account.credential.encryptedSecret,
+        encryptedPassphrase:
+          account.credential
+            .encryptedPassphrase,
+        testnet: account.testnet,
+      });
+
+    return adapter.getBalances();
   }
 }
 

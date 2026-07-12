@@ -5,6 +5,7 @@ import authRoutes from "./auth/auth.routes";
 import adminRoutes from "./admin/admin.routes";
 import exchangeRoutes from "./exchanges/exchange.routes";
 import marketRoutes from "./routes/market.routes";
+import tradingRoutes from "./trading/trading.routes";
 
 import { requestLogger } from "./middleware/logger.middleware";
 import { errorHandler } from "./middleware/error.middleware";
@@ -39,6 +40,8 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/exchanges", exchangeRoutes);
 
 app.use("/api/markets", marketRoutes);
+
+app.use("/api/trading", tradingRoutes);
 
 // ==========================
 // Global Error Handler

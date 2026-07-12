@@ -32,6 +32,7 @@
     "jsonwebtoken": "^9.0.3",
     "prisma": "^6.19.3",
     "qs": "^6.15.3",
+    "technicalindicators": "^3.1.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

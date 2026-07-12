@@ -14,10 +14,41 @@ export interface ExchangeBalance {
 
 export interface ExchangeTicker {
   symbol: string;
+  price: number;
   bid: number;
   ask: number;
-  last: number;
+  timestamp: number;
 }
+
+export interface ExchangeCandle {
+  timestamp: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+/**
+ * Supported exchange candle intervals.
+ * These match Bybit's V5 Kline intervals and will
+ * also serve as the common interval type for
+ * other exchanges.
+ */
+export type ExchangeInterval =
+  | "1"
+  | "3"
+  | "5"
+  | "15"
+  | "30"
+  | "60"
+  | "120"
+  | "240"
+  | "360"
+  | "720"
+  | "D"
+  | "W"
+  | "M";
 
 export interface ExchangeOrderRequest {
   symbol: string;
@@ -41,6 +72,12 @@ export interface ExchangeAdapter {
   getTicker(
     symbol: string,
   ): Promise<ExchangeTicker>;
+
+  getCandles(
+    symbol: string,
+    interval: ExchangeInterval,
+    limit?: number,
+  ): Promise<ExchangeCandle[]>;
 
   placeOrder(
     order: ExchangeOrderRequest,

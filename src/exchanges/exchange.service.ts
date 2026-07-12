@@ -7,7 +7,9 @@ import { prisma } from "../config/prisma";
 import { AppError } from "../errors/AppError";
 import { encryptionService } from "../security/encryption.service";
 
+import type { ExchangeInterval } from "./adapters/exchange.adapter";
 import { ExchangeFactory } from "./exchange.factory";
+
 import type {
   CreateExchangeInput,
   UpdateExchangeInput,
@@ -80,7 +82,10 @@ export class ExchangeService {
   // ==========================
   async list(userId: string) {
     return prisma.exchangeAccount.findMany({
-      where: { userId },
+      where: {
+        userId,
+      },
+
       orderBy: {
         createdAt: "desc",
       },
@@ -123,7 +128,9 @@ export class ExchangeService {
     await this.getById(userId, id);
 
     return prisma.exchangeAccount.update({
-      where: { id },
+      where: {
+        id,
+      },
 
       data: {
         accountName: data.accountName,
@@ -148,7 +155,9 @@ export class ExchangeService {
     await this.getById(userId, id);
 
     return prisma.exchangeAccount.update({
-      where: { id },
+      where: {
+        id,
+      },
 
       data: {
         isActive,
@@ -166,7 +175,9 @@ export class ExchangeService {
     await this.getById(userId, id);
 
     await prisma.exchangeAccount.delete({
-      where: { id },
+      where: {
+        id,
+      },
     });
 
     return {
@@ -181,44 +192,8 @@ export class ExchangeService {
     userId: string,
     id: string,
   ) {
-    const account =
-      await prisma.exchangeAccount.findFirst({
-        where: {
-          id,
-          userId,
-        },
-
-        include: {
-          credential: true,
-        },
-      });
-
-    if (!account) {
-      throw new AppError(
-        "Exchange account not found.",
-        404,
-      );
-    }
-
-    if (!account.credential) {
-      throw new AppError(
-        "Exchange credentials not found.",
-        404,
-      );
-    }
-
-    const adapter =
-      ExchangeFactory.create({
-        exchange: account.exchange,
-        encryptedApiKey:
-          account.credential.encryptedApiKey,
-        encryptedSecret:
-          account.credential.encryptedSecret,
-        encryptedPassphrase:
-          account.credential
-            .encryptedPassphrase,
-        testnet: account.testnet,
-      });
+    const { account, adapter } =
+      await this.getAdapter(userId, id);
 
     const connected =
       await adapter.testConnection();
@@ -242,6 +217,53 @@ export class ExchangeService {
     userId: string,
     id: string,
   ) {
+    const { adapter } =
+      await this.getAdapter(userId, id);
+
+    return adapter.getBalances();
+  }
+
+  // ==========================
+  // Get Market Ticker
+  // ==========================
+  async getTicker(
+    userId: string,
+    id: string,
+    symbol: string,
+  ) {
+    const { adapter } =
+      await this.getAdapter(userId, id);
+
+    return adapter.getTicker(symbol);
+  }
+
+  // ==========================
+  // Get Market Candles
+  // ==========================
+  async getCandles(
+    userId: string,
+    id: string,
+    symbol: string,
+    interval: ExchangeInterval,
+    limit = 200,
+  ) {
+    const { adapter } =
+      await this.getAdapter(userId, id);
+
+    return adapter.getCandles(
+      symbol,
+      interval,
+      limit,
+    );
+  }
+
+  // ==========================
+  // Shared Adapter Loader
+  // ==========================
+  private async getAdapter(
+    userId: string,
+    id: string,
+  ) {
     const account =
       await prisma.exchangeAccount.findFirst({
         where: {
@@ -281,7 +303,10 @@ export class ExchangeService {
         testnet: account.testnet,
       });
 
-    return adapter.getBalances();
+    return {
+      account,
+      adapter,
+    };
   }
 }
 

@@ -1,9 +1,15 @@
-import { RestClientV5 } from "bybit-api";
+import {
+  KlineIntervalV3,
+  RestClientV5,
+} from "bybit-api";
 
 import { env } from "../../config/env";
 import {
   ExchangeBalance,
+  ExchangeCandle,
   ExchangeCredentials,
+  ExchangeInterval,
+  ExchangeTicker,
 } from "./exchange.adapter";
 
 export class BybitClient {
@@ -76,6 +82,68 @@ export class BybitClient {
   }
 
   /**
+   * Retrieve and normalize market ticker.
+   */
+  async getTicker(
+    symbol: string,
+  ): Promise<ExchangeTicker> {
+    const response =
+      await this.client.getTickers({
+        category: "spot",
+        symbol,
+      });
+
+    const ticker =
+      response.result.list?.[0];
+
+    if (!ticker) {
+      throw new Error(
+        `Ticker not found for ${symbol}.`,
+      );
+    }
+
+    return {
+      symbol: ticker.symbol,
+      price: Number(ticker.lastPrice),
+      bid: Number(ticker.bid1Price),
+      ask: Number(ticker.ask1Price),
+      timestamp: Date.now(),
+    };
+  }
+
+  /**
+   * Retrieve and normalize OHLCV candles.
+   */
+  async getCandles(
+    symbol: string,
+    interval: ExchangeInterval,
+    limit = 200,
+  ): Promise<ExchangeCandle[]> {
+    const response =
+      await this.client.getKline({
+        category: "spot",
+        symbol,
+        interval:
+          interval as KlineIntervalV3,
+        limit,
+      });
+
+    const candles =
+      response.result.list ?? [];
+
+    return candles
+      .map((candle) => ({
+        timestamp: Number(candle[0]),
+        open: Number(candle[1]),
+        high: Number(candle[2]),
+        low: Number(candle[3]),
+        close: Number(candle[4]),
+        volume: Number(candle[5]),
+      }))
+      .reverse();
+  }
+
+  /**
    * Retrieve account information.
    */
   async getAccountInfo() {
@@ -91,7 +159,6 @@ export class BybitClient {
 
   /**
    * Expose the underlying SDK.
-   * Intended for provider-level operations.
    */
   get sdk(): RestClientV5 {
     return this.client;

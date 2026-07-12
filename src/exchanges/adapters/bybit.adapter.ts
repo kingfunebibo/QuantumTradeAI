@@ -1,7 +1,9 @@
 import {
   ExchangeAdapter,
   ExchangeBalance,
+  ExchangeCandle,
   ExchangeCredentials,
+  ExchangeInterval,
   ExchangeOrderRequest,
   ExchangeOrderResult,
   ExchangeTicker,
@@ -34,13 +36,25 @@ export class BybitAdapter implements ExchangeAdapter {
 
   /**
    * Retrieve market ticker
-   * (Implemented in the next milestone)
    */
   async getTicker(
-    _symbol: string,
+    symbol: string,
   ): Promise<ExchangeTicker> {
-    throw new Error(
-      "getTicker() has not been implemented yet.",
+    return this.client.getTicker(symbol);
+  }
+
+  /**
+   * Retrieve OHLCV candles
+   */
+  async getCandles(
+    symbol: string,
+    interval: ExchangeInterval,
+    limit = 200,
+  ): Promise<ExchangeCandle[]> {
+    return this.client.getCandles(
+      symbol,
+      interval,
+      limit,
     );
   }
 

@@ -22,18 +22,9 @@ router.post("/", exchangeController.create);
 // List User Exchanges
 router.get("/", exchangeController.list);
 
-// Get Exchange By ID
-router.get("/:id", exchangeController.get);
-
 // ------------------------------------------
 // Live Exchange Data
 // ------------------------------------------
-
-// Get Wallet Balances
-router.get(
-  "/:id/balances",
-  exchangeController.getBalances,
-);
 
 // Test Exchange Connection
 router.post(
@@ -41,9 +32,30 @@ router.post(
   exchangeController.testConnection,
 );
 
+// Get Wallet Balances
+router.get(
+  "/:id/balances",
+  exchangeController.getBalances,
+);
+
+// Get Live Market Ticker
+router.get(
+  "/:id/ticker/:symbol",
+  exchangeController.getTicker,
+);
+
+// Get Market Candlesticks (OHLCV)
+router.get(
+  "/:id/candles/:symbol",
+  exchangeController.getCandles,
+);
+
 // ------------------------------------------
 // Exchange Management
 // ------------------------------------------
+
+// Get Exchange By ID
+router.get("/:id", exchangeController.get);
 
 // Update Exchange
 router.patch("/:id", exchangeController.update);

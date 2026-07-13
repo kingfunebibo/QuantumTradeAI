@@ -1,4 +1,10 @@
-import { randomUUID } from "node:crypto";
+import {
+  SystemExecutionRuntime,
+} from "./execution-runtime";
+
+import type {
+  ExecutionRuntime,
+} from "./execution-runtime";
 
 import type {
   ExecutionEngineOptions,
@@ -22,8 +28,11 @@ export class ExecutionEngine {
   private readonly executedSignalIds =
     new Set<string>();
 
-  constructor(
+  public constructor(
     options: ExecutionEngineOptions = {},
+    private readonly runtime:
+      ExecutionRuntime =
+        new SystemExecutionRuntime(),
   ) {
     this.slippageRate =
       options.slippageRate ?? 0.0005;
@@ -32,9 +41,10 @@ export class ExecutionEngine {
       options.tradingFeeRate ?? 0.001;
 
     this.validateOptions();
+    this.validateRuntime(runtime);
   }
 
-  executeMarketOrder(
+  public executeMarketOrder(
     request: ExecutionRequest,
   ): ExecutionReport {
     this.validateRequest(request);
@@ -47,25 +57,38 @@ export class ExecutionEngine {
       request.marketPrice ??
       trade.entryPrice;
 
-    const now = Date.now();
+    const now =
+      this.runtime.now();
 
     const order: ExecutionOrder = {
-      id: randomUUID(),
-      signalId: trade.signalId,
-      strategyId: trade.strategyId,
-      symbol: trade.symbol,
-      timeframe: trade.timeframe,
-      side: trade.side,
-      type: "MARKET",
-      status: "PENDING",
-      requestedPrice: marketPrice,
+      id:
+        this.runtime.nextOrderId(),
+      signalId:
+        trade.signalId,
+      strategyId:
+        trade.strategyId,
+      symbol:
+        trade.symbol,
+      timeframe:
+        trade.timeframe,
+      side:
+        trade.side,
+      type:
+        "MARKET",
+      status:
+        "PENDING",
+      requestedPrice:
+        marketPrice,
       requestedQuantity:
         trade.quantity,
-      leverage: trade.leverage,
+      leverage:
+        trade.leverage,
       stopLossPrice:
         trade.stopLossPrice,
-      createdAt: now,
-      updatedAt: now,
+      createdAt:
+        now,
+      updatedAt:
+        now,
       metadata: {
         ...trade.metadata,
         approvedAt:
@@ -82,12 +105,14 @@ export class ExecutionEngine {
         trade.signalId,
       )
     ) {
-      const rejectedOrder = {
-        ...order,
-        status:
-          "REJECTED" as const,
-        updatedAt: Date.now(),
-      };
+      const rejectedOrder:
+        ExecutionOrder = {
+          ...order,
+          status:
+            "REJECTED",
+          updatedAt:
+            this.runtime.now(),
+        };
 
       this.orders.set(
         rejectedOrder.id,
@@ -98,7 +123,10 @@ export class ExecutionEngine {
         accepted: false,
         reason:
           `Signal "${trade.signalId}" has already been executed.`,
-        order: rejectedOrder,
+        order:
+          this.cloneOrder(
+            rejectedOrder,
+          ),
       };
     }
 
@@ -109,7 +137,8 @@ export class ExecutionEngine {
       );
 
     const grossNotional =
-      fillPrice * trade.quantity;
+      fillPrice *
+      trade.quantity;
 
     const fee =
       grossNotional *
@@ -122,15 +151,22 @@ export class ExecutionEngine {
 
     const slippageAmount =
       Math.abs(
-        fillPrice - marketPrice,
-      ) * trade.quantity;
+        fillPrice -
+          marketPrice,
+      ) *
+      trade.quantity;
 
     const fill: ExecutionFill = {
-      id: randomUUID(),
-      orderId: order.id,
-      symbol: trade.symbol,
-      side: trade.side,
-      quantity: trade.quantity,
+      id:
+        this.runtime.nextFillId(),
+      orderId:
+        order.id,
+      symbol:
+        trade.symbol,
+      side:
+        trade.side,
+      quantity:
+        trade.quantity,
       requestedPrice:
         marketPrice,
       fillPrice,
@@ -140,14 +176,18 @@ export class ExecutionEngine {
       slippageAmount,
       slippageRate:
         this.slippageRate,
-      filledAt: Date.now(),
+      filledAt:
+        this.runtime.now(),
     };
 
-    const filledOrder: ExecutionOrder = {
-      ...order,
-      status: "FILLED",
-      updatedAt: fill.filledAt,
-    };
+    const filledOrder:
+      ExecutionOrder = {
+        ...order,
+        status:
+          "FILLED",
+        updatedAt:
+          fill.filledAt,
+      };
 
     this.orders.set(
       filledOrder.id,
@@ -167,98 +207,114 @@ export class ExecutionEngine {
       accepted: true,
       reason:
         "Market order filled successfully.",
-      order: filledOrder,
-      fill,
+      order:
+        this.cloneOrder(
+          filledOrder,
+        ),
+      fill:
+        this.cloneFill(
+          fill,
+        ),
     };
   }
 
-  getOrder(
+  public getOrder(
     orderId: string,
   ): ExecutionOrder {
     const normalizedOrderId =
-      orderId.trim();
-
-    if (!normalizedOrderId) {
-      throw new Error(
-        "Order ID cannot be empty.",
+      this.normalizeId(
+        orderId,
+        "Order ID",
       );
-    }
 
     const order =
       this.orders.get(
         normalizedOrderId,
       );
 
-    if (!order) {
+    if (order === undefined) {
       throw new Error(
         `Order "${normalizedOrderId}" was not found.`,
       );
     }
 
-    return {
-      ...order,
-      metadata: {
-        ...order.metadata,
-      },
-    };
+    return this.cloneOrder(
+      order,
+    );
   }
 
-  getFill(
+  public getFill(
     orderId: string,
   ): ExecutionFill | undefined {
-    const fill =
-      this.fills.get(
-        orderId.trim(),
+    const normalizedOrderId =
+      this.normalizeId(
+        orderId,
+        "Order ID",
       );
 
-    return fill
-      ? {
-          ...fill,
-        }
-      : undefined;
+    const fill =
+      this.fills.get(
+        normalizedOrderId,
+      );
+
+    return fill === undefined
+      ? undefined
+      : this.cloneFill(fill);
   }
 
-  listOrders(): ExecutionOrder[] {
+  public listOrders():
+    ExecutionOrder[] {
     return Array.from(
       this.orders.values(),
-    ).map((order) => ({
-      ...order,
-      metadata: {
-        ...order.metadata,
-      },
-    }));
+    ).map(
+      (order) =>
+        this.cloneOrder(order),
+    );
   }
 
-  listFills(): ExecutionFill[] {
+  public listFills():
+    ExecutionFill[] {
     return Array.from(
       this.fills.values(),
-    ).map((fill) => ({
-      ...fill,
-    }));
+    ).map(
+      (fill) =>
+        this.cloneFill(fill),
+    );
   }
 
-  cancelOrder(
+  public cancelOrder(
     orderId: string,
   ): ExecutionReport {
     const order =
       this.getOrder(orderId);
 
-    if (order.status !== "PENDING") {
+    if (
+      order.status !==
+      "PENDING"
+    ) {
+      const fill =
+        this.getFill(
+          order.id,
+        );
+
       return {
         accepted: false,
         reason:
-          `Only pending orders can be cancelled. Current status: ${order.status}.`,
+          "Only pending orders can be cancelled. " +
+          `Current status: ${order.status}.`,
         order,
-        fill:
-          this.getFill(order.id),
+        fill,
       };
     }
 
-    const cancelledOrder: ExecutionOrder = {
-      ...order,
-      status: "CANCELLED",
-      updatedAt: Date.now(),
-    };
+    const cancelledOrder:
+      ExecutionOrder = {
+        ...order,
+        status:
+          "CANCELLED",
+        updatedAt:
+          this.runtime.now(),
+      };
 
     this.orders.set(
       cancelledOrder.id,
@@ -269,26 +325,37 @@ export class ExecutionEngine {
       accepted: true,
       reason:
         "Order cancelled successfully.",
-      order: cancelledOrder,
+      order:
+        this.cloneOrder(
+          cancelledOrder,
+        ),
     };
   }
 
-  hasExecutedSignal(
+  public hasExecutedSignal(
     signalId: string,
   ): boolean {
+    const normalizedSignalId =
+      this.normalizeId(
+        signalId,
+        "Signal ID",
+      );
+
     return this.executedSignalIds.has(
-      signalId.trim(),
+      normalizedSignalId,
     );
   }
 
-  getSummary(): ExecutionSummary {
+  public getSummary():
+    ExecutionSummary {
     const orders =
       Array.from(
         this.orders.values(),
       );
 
     return {
-      totalOrders: orders.length,
+      totalOrders:
+        orders.length,
       pendingOrders:
         orders.filter(
           (order) =>
@@ -316,10 +383,11 @@ export class ExecutionEngine {
     };
   }
 
-  clear(): void {
+  public clear(): void {
     this.orders.clear();
     this.fills.clear();
     this.executedSignalIds.clear();
+    this.runtime.reset();
   }
 
   private validateOptions(): void {
@@ -351,25 +419,51 @@ export class ExecutionEngine {
   private validateRequest(
     request: ExecutionRequest,
   ): void {
+    if (
+      request === null ||
+      typeof request !== "object"
+    ) {
+      throw new Error(
+        "Execution request must be an object.",
+      );
+    }
+
     const {
       trade,
     } = request;
 
-    if (!trade.signalId.trim()) {
+    if (
+      trade === null ||
+      typeof trade !== "object"
+    ) {
       throw new Error(
-        "Execution signal ID cannot be empty.",
+        "Execution trade must be an object.",
       );
     }
 
-    if (!trade.strategyId.trim()) {
-      throw new Error(
-        "Execution strategy ID cannot be empty.",
-      );
-    }
+    this.normalizeId(
+      trade.signalId,
+      "Execution signal ID",
+    );
 
-    if (!trade.symbol.trim()) {
+    this.normalizeId(
+      trade.strategyId,
+      "Execution strategy ID",
+    );
+
+    this.normalizeId(
+      trade.symbol,
+      "Execution symbol",
+    );
+
+    if (
+      typeof trade.timeframe !==
+        "string" ||
+      trade.timeframe.trim()
+        .length === 0
+    ) {
       throw new Error(
-        "Execution symbol cannot be empty.",
+        "Execution timeframe cannot be empty.",
       );
     }
 
@@ -426,6 +520,17 @@ export class ExecutionEngine {
       );
     }
 
+    if (
+      !Number.isSafeInteger(
+        trade.approvedAt,
+      ) ||
+      trade.approvedAt < 0
+    ) {
+      throw new Error(
+        "Execution approvedAt must be a non-negative safe integer.",
+      );
+    }
+
     const marketPrice =
       request.marketPrice ??
       trade.entryPrice;
@@ -449,13 +554,85 @@ export class ExecutionEngine {
     if (side === "BUY") {
       return (
         marketPrice *
-        (1 + this.slippageRate)
+        (
+          1 +
+          this.slippageRate
+        )
       );
     }
 
     return (
       marketPrice *
-      (1 - this.slippageRate)
+      (
+        1 -
+        this.slippageRate
+      )
     );
+  }
+
+  private validateRuntime(
+    runtime: ExecutionRuntime,
+  ): void {
+    if (
+      runtime === null ||
+      typeof runtime !== "object" ||
+      typeof runtime.now !==
+        "function" ||
+      typeof runtime.nextOrderId !==
+        "function" ||
+      typeof runtime.nextFillId !==
+        "function" ||
+      typeof runtime.reset !==
+        "function"
+    ) {
+      throw new Error(
+        "Execution engine requires a valid execution runtime.",
+      );
+    }
+  }
+
+  private normalizeId(
+    value: string,
+    label: string,
+  ): string {
+    if (
+      typeof value !== "string"
+    ) {
+      throw new Error(
+        `${label} must be a string.`,
+      );
+    }
+
+    const normalizedValue =
+      value.trim();
+
+    if (
+      normalizedValue.length === 0
+    ) {
+      throw new Error(
+        `${label} cannot be empty.`,
+      );
+    }
+
+    return normalizedValue;
+  }
+
+  private cloneOrder(
+    order: ExecutionOrder,
+  ): ExecutionOrder {
+    return {
+      ...order,
+      metadata: {
+        ...order.metadata,
+      },
+    };
+  }
+
+  private cloneFill(
+    fill: ExecutionFill,
+  ): ExecutionFill {
+    return {
+      ...fill,
+    };
   }
 }

@@ -1,10 +1,16 @@
-import { randomUUID } from "node:crypto";
-
 import type {
   ExecutionFill,
   ExecutionOrder,
   ExecutionReport,
 } from "../execution";
+
+import {
+  SystemPositionRuntime,
+} from "./position-runtime";
+
+import type {
+  PositionRuntime,
+} from "./position-runtime";
 
 import type {
   ClosedTrade,
@@ -20,13 +26,30 @@ export class PositionManager {
   private readonly closedTrades:
     ClosedTrade[] = [];
 
-  processExecution(
+  public constructor(
+    private readonly runtime:
+      PositionRuntime =
+        new SystemPositionRuntime(),
+  ) {
+    this.validateRuntime(runtime);
+  }
+
+  public processExecution(
     report: ExecutionReport,
   ): PositionUpdate {
     if (
+      report === null ||
+      typeof report !== "object"
+    ) {
+      throw new Error(
+        "Position execution report must be an object.",
+      );
+    }
+
+    if (
       !report.accepted ||
       report.order.status !== "FILLED" ||
-      !report.fill
+      report.fill === undefined
     ) {
       throw new Error(
         "Only accepted and filled execution reports can update positions.",
@@ -43,7 +66,9 @@ export class PositionManager {
         report.order.symbol,
       );
 
-    if (!existingPosition) {
+    if (
+      existingPosition === undefined
+    ) {
       return this.openPosition(
         report.order,
         report.fill,
@@ -73,18 +98,12 @@ export class PositionManager {
     );
   }
 
-  updateMarketPrice(
+  public updateMarketPrice(
     symbol: string,
     marketPrice: number,
   ): Position {
     const normalizedSymbol =
-      symbol.trim();
-
-    if (!normalizedSymbol) {
-      throw new Error(
-        "Position symbol cannot be empty.",
-      );
-    }
+      this.normalizeSymbol(symbol);
 
     if (
       !Number.isFinite(marketPrice) ||
@@ -100,20 +119,22 @@ export class PositionManager {
         normalizedSymbol,
       );
 
-    if (!position) {
+    if (
+      position === undefined
+    ) {
       throw new Error(
         `No open position exists for "${normalizedSymbol}".`,
       );
     }
 
     const updatedPosition =
-      this.recalculatePosition(
-        {
-          ...position,
-          lastPrice: marketPrice,
-          updatedAt: Date.now(),
-        },
-      );
+      this.recalculatePosition({
+        ...position,
+        lastPrice:
+          marketPrice,
+        updatedAt:
+          this.runtime.now(),
+      });
 
     this.positions.set(
       normalizedSymbol,
@@ -125,64 +146,92 @@ export class PositionManager {
     );
   }
 
-  getPosition(
+  public getPosition(
     symbol: string,
   ): Position | undefined {
+    const normalizedSymbol =
+      this.normalizeSymbol(symbol);
+
     const position =
       this.positions.get(
-        symbol.trim(),
+        normalizedSymbol,
       );
 
-    return position
-      ? this.clonePosition(position)
-      : undefined;
+    return position === undefined
+      ? undefined
+      : this.clonePosition(
+          position,
+        );
   }
 
-  listOpenPositions(): Position[] {
+  public listOpenPositions():
+    Position[] {
     return Array.from(
       this.positions.values(),
-    ).map((position) =>
-      this.clonePosition(position),
+    ).map(
+      (position) =>
+        this.clonePosition(
+          position,
+        ),
     );
   }
 
-  listClosedTrades(): ClosedTrade[] {
+  public listClosedTrades():
+    ClosedTrade[] {
     return this.closedTrades.map(
       (trade) =>
-        this.cloneClosedTrade(trade),
+        this.cloneClosedTrade(
+          trade,
+        ),
     );
   }
 
-  clear(): void {
+  public clear(): void {
     this.positions.clear();
-    this.closedTrades.length = 0;
+    this.closedTrades.splice(
+      0,
+      this.closedTrades.length,
+    );
+
+    this.runtime.reset();
   }
 
   private openPosition(
     order: ExecutionOrder,
     fill: ExecutionFill,
   ): PositionUpdate {
-    const now = fill.filledAt;
+    const timestamp =
+      fill.filledAt;
 
     const position =
       this.recalculatePosition({
-        id: randomUUID(),
-        symbol: fill.symbol,
-        side: this.toPositionSide(
-          fill.side,
-        ),
-        quantity: fill.quantity,
+        id:
+          this.runtime.nextPositionId(),
+        symbol:
+          fill.symbol,
+        side:
+          this.toPositionSide(
+            fill.side,
+          ),
+        quantity:
+          fill.quantity,
         averageEntryPrice:
           fill.fillPrice,
-        lastPrice: fill.fillPrice,
-        leverage: order.leverage,
+        lastPrice:
+          fill.fillPrice,
+        leverage:
+          order.leverage,
         marginUsed: 0,
         unrealizedPnl: 0,
         realizedPnl: 0,
-        entryFees: fill.fee,
-        totalFees: fill.fee,
-        openedAt: now,
-        updatedAt: now,
+        entryFees:
+          fill.fee,
+        totalFees:
+          fill.fee,
+        openedAt:
+          timestamp,
+        updatedAt:
+          timestamp,
         metadata: {
           ...order.metadata,
           openingOrderId:
@@ -202,9 +251,12 @@ export class PositionManager {
     return {
       action: "OPENED",
       grossRealizedPnl: 0,
-      fee: fill.fee,
+      fee:
+        fill.fee,
       position:
-        this.clonePosition(position),
+        this.clonePosition(
+          position,
+        ),
     };
   }
 
@@ -232,15 +284,18 @@ export class PositionManager {
           position.quantity +
         fill.fillPrice *
           fill.quantity
-      ) / combinedQuantity;
+      ) /
+      combinedQuantity;
 
     const updatedPosition =
       this.recalculatePosition({
         ...position,
-        quantity: combinedQuantity,
+        quantity:
+          combinedQuantity,
         averageEntryPrice:
           weightedEntryPrice,
-        lastPrice: fill.fillPrice,
+        lastPrice:
+          fill.fillPrice,
         entryFees:
           position.entryFees +
           fill.fee,
@@ -266,7 +321,8 @@ export class PositionManager {
     return {
       action: "INCREASED",
       grossRealizedPnl: 0,
-      fee: fill.fee,
+      fee:
+        fill.fee,
       position:
         this.clonePosition(
           updatedPosition,
@@ -306,37 +362,46 @@ export class PositionManager {
         closingQuantity,
       );
 
-    const closedTrade: ClosedTrade = {
-      id: randomUUID(),
-      positionId: position.id,
-      orderId: order.id,
-      symbol: position.symbol,
-      side: position.side,
-      quantity: closingQuantity,
-      entryPrice:
-        position.averageEntryPrice,
-      exitPrice: fill.fillPrice,
-      grossRealizedPnl,
-      entryFee:
-        entryFeeAllocated,
-      exitFee:
-        exitFeeAllocated,
-      netRealizedPnl:
-        grossRealizedPnl -
-        entryFeeAllocated -
-        exitFeeAllocated,
-      openedAt:
-        position.openedAt,
-      closedAt:
-        fill.filledAt,
-      metadata: {
-        ...position.metadata,
-        closingOrderId:
+    const closedTrade:
+      ClosedTrade = {
+        id:
+          this.runtime
+            .nextClosedTradeId(),
+        positionId:
+          position.id,
+        orderId:
           order.id,
-        closingFillId:
-          fill.id,
-      },
-    };
+        symbol:
+          position.symbol,
+        side:
+          position.side,
+        quantity:
+          closingQuantity,
+        entryPrice:
+          position.averageEntryPrice,
+        exitPrice:
+          fill.fillPrice,
+        grossRealizedPnl,
+        entryFee:
+          entryFeeAllocated,
+        exitFee:
+          exitFeeAllocated,
+        netRealizedPnl:
+          grossRealizedPnl -
+          entryFeeAllocated -
+          exitFeeAllocated,
+        openedAt:
+          position.openedAt,
+        closedAt:
+          fill.filledAt,
+        metadata: {
+          ...position.metadata,
+          closingOrderId:
+            order.id,
+          closingFillId:
+            fill.id,
+        },
+      };
 
     this.closedTrades.push(
       closedTrade,
@@ -386,7 +451,8 @@ export class PositionManager {
       return {
         action: "REDUCED",
         grossRealizedPnl,
-        fee: fill.fee,
+        fee:
+          fill.fee,
         position:
           this.clonePosition(
             updatedPosition,
@@ -409,7 +475,8 @@ export class PositionManager {
       return {
         action: "CLOSED",
         grossRealizedPnl,
-        fee: fill.fee,
+        fee:
+          fill.fee,
         closedTrade:
           this.cloneClosedTrade(
             closedTrade,
@@ -427,11 +494,15 @@ export class PositionManager {
 
     const reversedPosition =
       this.recalculatePosition({
-        id: randomUUID(),
-        symbol: fill.symbol,
-        side: this.toPositionSide(
-          fill.side,
-        ),
+        id:
+          this.runtime
+            .nextPositionId(),
+        symbol:
+          fill.symbol,
+        side:
+          this.toPositionSide(
+            fill.side,
+          ),
         quantity:
           remainingQuantity,
         averageEntryPrice:
@@ -443,8 +514,10 @@ export class PositionManager {
         marginUsed: 0,
         unrealizedPnl: 0,
         realizedPnl: 0,
-        entryFees: openingFee,
-        totalFees: openingFee,
+        entryFees:
+          openingFee,
+        totalFees:
+          openingFee,
         openedAt:
           fill.filledAt,
         updatedAt:
@@ -470,7 +543,8 @@ export class PositionManager {
     return {
       action: "REVERSED",
       grossRealizedPnl,
-      fee: fill.fee,
+      fee:
+        fill.fee,
       position:
         this.clonePosition(
           reversedPosition,
@@ -487,17 +561,21 @@ export class PositionManager {
     exitPrice: number,
     quantity: number,
   ): number {
-    if (position.side === "LONG") {
+    if (
+      position.side === "LONG"
+    ) {
       return (
         exitPrice -
         position.averageEntryPrice
-      ) * quantity;
+      ) *
+      quantity;
     }
 
     return (
       position.averageEntryPrice -
       exitPrice
-    ) * quantity;
+    ) *
+    quantity;
   }
 
   private recalculatePosition(
@@ -518,7 +596,8 @@ export class PositionManager {
       (
         position.lastPrice *
         position.quantity
-      ) / position.leverage;
+      ) /
+      position.leverage;
 
     return {
       ...position,
@@ -531,14 +610,36 @@ export class PositionManager {
     order: ExecutionOrder,
     fill: ExecutionFill,
   ): void {
-    if (fill.orderId !== order.id) {
+    if (
+      order === null ||
+      typeof order !== "object"
+    ) {
+      throw new Error(
+        "Execution order must be an object.",
+      );
+    }
+
+    if (
+      fill === null ||
+      typeof fill !== "object"
+    ) {
+      throw new Error(
+        "Execution fill must be an object.",
+      );
+    }
+
+    if (
+      fill.orderId !==
+      order.id
+    ) {
       throw new Error(
         "Execution fill order ID does not match the execution order.",
       );
     }
 
     if (
-      fill.symbol !== order.symbol
+      fill.symbol !==
+      order.symbol
     ) {
       throw new Error(
         "Execution fill symbol does not match the execution order.",
@@ -546,7 +647,8 @@ export class PositionManager {
     }
 
     if (
-      fill.side !== order.side
+      fill.side !==
+      order.side
     ) {
       throw new Error(
         "Execution fill side does not match the execution order.",
@@ -576,11 +678,24 @@ export class PositionManager {
     }
 
     if (
-      !Number.isFinite(fill.fee) ||
+      !Number.isFinite(
+        fill.fee,
+      ) ||
       fill.fee < 0
     ) {
       throw new Error(
         "Position fill fee must be a non-negative finite number.",
+      );
+    }
+
+    if (
+      !Number.isSafeInteger(
+        fill.filledAt,
+      ) ||
+      fill.filledAt < 0
+    ) {
+      throw new Error(
+        "Position fill timestamp must be a non-negative safe integer.",
       );
     }
 
@@ -602,6 +717,52 @@ export class PositionManager {
     return side === "BUY"
       ? "LONG"
       : "SHORT";
+  }
+
+  private normalizeSymbol(
+    symbol: string,
+  ): string {
+    if (
+      typeof symbol !== "string"
+    ) {
+      throw new Error(
+        "Position symbol must be a string.",
+      );
+    }
+
+    const normalizedSymbol =
+      symbol.trim();
+
+    if (
+      normalizedSymbol.length === 0
+    ) {
+      throw new Error(
+        "Position symbol cannot be empty.",
+      );
+    }
+
+    return normalizedSymbol;
+  }
+
+  private validateRuntime(
+    runtime: PositionRuntime,
+  ): void {
+    if (
+      runtime === null ||
+      typeof runtime !== "object" ||
+      typeof runtime.now !==
+        "function" ||
+      typeof runtime.nextPositionId !==
+        "function" ||
+      typeof runtime.nextClosedTradeId !==
+        "function" ||
+      typeof runtime.reset !==
+        "function"
+    ) {
+      throw new Error(
+        "Position manager requires a valid position runtime.",
+      );
+    }
   }
 
   private clonePosition(

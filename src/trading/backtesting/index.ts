@@ -5,3 +5,4 @@ export * from "./backtesting.types";
 export * from "./historical-candle-replay";
 export * from "./session";
 export * from "./strategy";
+export * from "./signal";

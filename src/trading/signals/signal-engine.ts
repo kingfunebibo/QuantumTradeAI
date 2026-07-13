@@ -1,4 +1,7 @@
-import { randomUUID } from "node:crypto";
+import {
+  SignalRuntime,
+  SystemSignalRuntime,
+} from "./signal-runtime";
 
 import type {
   SignalDecision,
@@ -15,8 +18,10 @@ export class SignalEngine {
   private readonly processedSignals =
     new Map<string, number>();
 
-  constructor(
+  public constructor(
     options: SignalEngineOptions = {},
+    private readonly runtime: SignalRuntime =
+      new SystemSignalRuntime(),
   ) {
     this.minimumConfidence =
       options.minimumConfidence ?? 0.25;
@@ -25,13 +30,20 @@ export class SignalEngine {
       options.duplicateWindowMs ?? 60_000;
 
     this.validateOptions();
+    this.validateRuntime(runtime);
   }
 
-  process(
+  public process(
     input: SignalInput,
   ): SignalDecision {
     this.validateInput(input);
-    this.removeExpiredFingerprints();
+
+    const currentTime =
+      this.getCurrentTime();
+
+    this.removeExpiredFingerprints(
+      currentTime,
+    );
 
     const {
       strategyResult,
@@ -84,8 +96,13 @@ export class SignalEngine {
       };
     }
 
+    const signalId =
+      this.runtime.generateId();
+
+    this.validateGeneratedId(signalId);
+
     const signal: TradeSignal = {
-      id: randomUUID(),
+      id: signalId,
       strategyId:
         strategyResult.strategyId,
       symbol,
@@ -98,7 +115,7 @@ export class SignalEngine {
         strategyResult.reason,
       price,
       candleTimestamp,
-      generatedAt: Date.now(),
+      generatedAt: currentTime,
       metadata: {
         ...(strategyResult.metadata ?? {}),
         strategyTimestamp:
@@ -108,7 +125,7 @@ export class SignalEngine {
 
     this.processedSignals.set(
       fingerprint,
-      signal.generatedAt,
+      currentTime,
     );
 
     return {
@@ -119,10 +136,15 @@ export class SignalEngine {
     };
   }
 
-  hasProcessed(
+  public hasProcessed(
     fingerprint: SignalFingerprint,
   ): boolean {
-    this.removeExpiredFingerprints();
+    const currentTime =
+      this.getCurrentTime();
+
+    this.removeExpiredFingerprints(
+      currentTime,
+    );
 
     return this.processedSignals.has(
       this.createFingerprint(
@@ -131,12 +153,17 @@ export class SignalEngine {
     );
   }
 
-  clear(): void {
+  public clear(): void {
     this.processedSignals.clear();
   }
 
-  getProcessedCount(): number {
-    this.removeExpiredFingerprints();
+  public getProcessedCount(): number {
+    const currentTime =
+      this.getCurrentTime();
+
+    this.removeExpiredFingerprints(
+      currentTime,
+    );
 
     return this.processedSignals.size;
   }
@@ -166,16 +193,48 @@ export class SignalEngine {
     }
   }
 
+  private validateRuntime(
+    runtime: SignalRuntime,
+  ): void {
+    if (
+      runtime === null ||
+      typeof runtime !== "object" ||
+      typeof runtime.now !== "function" ||
+      typeof runtime.generateId !== "function"
+    ) {
+      throw new Error(
+        "Signal Engine requires a valid signal runtime.",
+      );
+    }
+
+    this.getCurrentTime();
+  }
+
   private validateInput(
     input: SignalInput,
   ): void {
-    if (!input.symbol.trim()) {
+    if (
+      input === null ||
+      typeof input !== "object"
+    ) {
+      throw new Error(
+        "Signal input must be an object.",
+      );
+    }
+
+    if (
+      typeof input.symbol !== "string" ||
+      !input.symbol.trim()
+    ) {
       throw new Error(
         "Signal symbol cannot be empty.",
       );
     }
 
-    if (!input.timeframe.trim()) {
+    if (
+      typeof input.timeframe !== "string" ||
+      !input.timeframe.trim()
+    ) {
       throw new Error(
         "Signal timeframe cannot be empty.",
       );
@@ -205,10 +264,31 @@ export class SignalEngine {
     } = input;
 
     if (
+      strategyResult === null ||
+      typeof strategyResult !== "object"
+    ) {
+      throw new Error(
+        "Strategy result must be an object.",
+      );
+    }
+
+    if (
+      typeof strategyResult.strategyId !==
+        "string" ||
       !strategyResult.strategyId.trim()
     ) {
       throw new Error(
         "Signal strategy ID cannot be empty.",
+      );
+    }
+
+    if (
+      strategyResult.signal !== "BUY" &&
+      strategyResult.signal !== "SELL" &&
+      strategyResult.signal !== "HOLD"
+    ) {
+      throw new Error(
+        "Strategy result contains an unsupported signal.",
       );
     }
 
@@ -235,6 +315,8 @@ export class SignalEngine {
     }
 
     if (
+      typeof strategyResult.reason !==
+        "string" ||
       !strategyResult.reason.trim()
     ) {
       throw new Error(
@@ -255,14 +337,16 @@ export class SignalEngine {
     ].join(":");
   }
 
-  private removeExpiredFingerprints(): void {
+  private removeExpiredFingerprints(
+    currentTime: number,
+  ): void {
     if (this.duplicateWindowMs === 0) {
       this.processedSignals.clear();
       return;
     }
 
     const cutoff =
-      Date.now() -
+      currentTime -
       this.duplicateWindowMs;
 
     for (const [
@@ -274,6 +358,36 @@ export class SignalEngine {
           fingerprint,
         );
       }
+    }
+  }
+
+  private getCurrentTime(): number {
+    const currentTime =
+      this.runtime.now();
+
+    if (
+      !Number.isSafeInteger(currentTime) ||
+      currentTime < 0
+    ) {
+      throw new Error(
+        "Signal runtime must return a non-negative " +
+          "safe integer timestamp.",
+      );
+    }
+
+    return currentTime;
+  }
+
+  private validateGeneratedId(
+    id: string,
+  ): void {
+    if (
+      typeof id !== "string" ||
+      id.trim().length === 0
+    ) {
+      throw new Error(
+        "Signal runtime must generate a non-empty signal ID.",
+      );
     }
   }
 }

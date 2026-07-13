@@ -1,4 +1,12 @@
 import {
+  ExecutionEngine,
+} from "./execution";
+
+import {
+  RiskManager,
+} from "./risk";
+
+import {
   SignalEngine,
 } from "./signals";
 
@@ -8,8 +16,21 @@ import {
 } from "./strategies";
 
 import type {
+  ExecutionEngineOptions,
+  ExecutionReport,
+  ExecutionRequest,
+} from "./execution";
+
+import type {
+  RiskDecision,
+  RiskManagerOptions,
+  RiskRequest,
+} from "./risk";
+
+import type {
   SignalDecision,
   SignalEngineOptions,
+  TradeSignal,
 } from "./signals";
 
 import type {
@@ -19,6 +40,12 @@ import type {
   TradingStrategy,
 } from "./strategies";
 
+export interface TradingServiceOptions {
+  signalEngine?: SignalEngineOptions;
+  riskManager?: RiskManagerOptions;
+  executionEngine?: ExecutionEngineOptions;
+}
+
 export class TradingService {
   private readonly strategyRegistry:
     StrategyRegistry;
@@ -26,18 +53,33 @@ export class TradingService {
   private readonly signalEngine:
     SignalEngine;
 
+  private readonly riskManager:
+    RiskManager;
+
+  private readonly executionEngine:
+    ExecutionEngine;
+
   constructor(
     strategyRegistry =
       new StrategyRegistry(),
-    signalEngineOptions:
-      SignalEngineOptions = {},
+    options: TradingServiceOptions = {},
   ) {
     this.strategyRegistry =
       strategyRegistry;
 
     this.signalEngine =
       new SignalEngine(
-        signalEngineOptions,
+        options.signalEngine,
+      );
+
+    this.riskManager =
+      new RiskManager(
+        options.riskManager,
+      );
+
+    this.executionEngine =
+      new ExecutionEngine(
+        options.executionEngine,
       );
 
     this.registerDefaultStrategies();
@@ -102,6 +144,38 @@ export class TradingService {
       candleTimestamp:
         latestCandle.timestamp,
     });
+  }
+
+  evaluateRisk(
+    request: RiskRequest,
+  ): RiskDecision {
+    return this.riskManager.evaluate(
+      request,
+    );
+  }
+
+  evaluateSignalRisk(
+    signal: TradeSignal,
+    request: Omit<
+      RiskRequest,
+      "signal"
+    >,
+  ): RiskDecision {
+    return this.riskManager.evaluate({
+      ...request,
+      signal,
+    });
+  }
+
+  executeApprovedTrade(
+    request: ExecutionRequest,
+  ): ExecutionReport {
+    return this.executionEngine
+      .executeMarketOrder(request);
+  }
+
+  getExecutionEngine(): ExecutionEngine {
+    return this.executionEngine;
   }
 
   clearSignalHistory(): void {

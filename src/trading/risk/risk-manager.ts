@@ -198,7 +198,7 @@ export class RiskManager {
       riskAmount: actualRiskAmount,
       riskPerUnit,
       accountRiskAfterTrade,
-      approvedAt: Date.now(),
+      approvedAt: signal.generatedAt,
       metadata: {
         ...signal.metadata,
         signalConfidence:

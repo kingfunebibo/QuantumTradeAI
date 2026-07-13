@@ -6,3 +6,4 @@ export * from "./historical-candle-replay";
 export * from "./session";
 export * from "./strategy";
 export * from "./signal";
+export * from "./risk";

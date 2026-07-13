@@ -3,6 +3,10 @@ import {
 } from "./execution";
 
 import {
+  PortfolioManager,
+} from "./portfolio";
+
+import {
   RiskManager,
 } from "./risk";
 
@@ -20,6 +24,13 @@ import type {
   ExecutionReport,
   ExecutionRequest,
 } from "./execution";
+
+import type {
+  PortfolioManagerOptions,
+  PortfolioSnapshot,
+  Position,
+  PositionUpdate,
+} from "./portfolio";
 
 import type {
   RiskDecision,
@@ -44,6 +55,7 @@ export interface TradingServiceOptions {
   signalEngine?: SignalEngineOptions;
   riskManager?: RiskManagerOptions;
   executionEngine?: ExecutionEngineOptions;
+  portfolioManager?: PortfolioManagerOptions;
 }
 
 export class TradingService {
@@ -58,6 +70,9 @@ export class TradingService {
 
   private readonly executionEngine:
     ExecutionEngine;
+
+  private readonly portfolioManager:
+    PortfolioManager;
 
   constructor(
     strategyRegistry =
@@ -80,6 +95,11 @@ export class TradingService {
     this.executionEngine =
       new ExecutionEngine(
         options.executionEngine,
+      );
+
+    this.portfolioManager =
+      new PortfolioManager(
+        options.portfolioManager,
       );
 
     this.registerDefaultStrategies();
@@ -174,8 +194,61 @@ export class TradingService {
       .executeMarketOrder(request);
   }
 
+  executeAndUpdatePortfolio(
+    request: ExecutionRequest,
+  ): {
+    execution: ExecutionReport;
+    positionUpdate?: PositionUpdate;
+  } {
+    const execution =
+      this.executeApprovedTrade(
+        request,
+      );
+
+    if (
+      !execution.accepted ||
+      execution.order.status !==
+        "FILLED" ||
+      !execution.fill
+    ) {
+      return {
+        execution,
+      };
+    }
+
+    const positionUpdate =
+      this.portfolioManager
+        .processExecution(execution);
+
+    return {
+      execution,
+      positionUpdate,
+    };
+  }
+
+  updatePositionMarketPrice(
+    symbol: string,
+    marketPrice: number,
+  ): Position {
+    return this.portfolioManager
+      .updateMarketPrice(
+        symbol,
+        marketPrice,
+      );
+  }
+
+  getPortfolioSnapshot():
+    PortfolioSnapshot {
+    return this.portfolioManager
+      .getSnapshot();
+  }
+
   getExecutionEngine(): ExecutionEngine {
     return this.executionEngine;
+  }
+
+  getPortfolioManager(): PortfolioManager {
+    return this.portfolioManager;
   }
 
   clearSignalHistory(): void {

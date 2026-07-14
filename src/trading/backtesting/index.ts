@@ -7,3 +7,16 @@ export * from "./session";
 export * from "./strategy";
 export * from "./signal";
 export * from "./risk";
+export * as BacktestReporting from "./reporting";
+
+export {
+  BacktestReportValidator,
+  BacktestReportValidationError,
+  ImmutableBacktestReportModel,
+  BacktestReportNotInitializedError,
+  BacktestReportResetError,
+  DeterministicJsonSerializer,
+  DeterministicJsonSerializationError,
+  DeterministicBacktestReportExporter,
+  DeterministicBacktestReportExportError,
+} from "./reporting";

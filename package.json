@@ -43,6 +43,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.1.0",
     "@types/qs": "^6.15.1",
+    "@types/ws": "^8.18.1",
     "eslint": "^10.6.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.6",

@@ -8,3 +8,4 @@ export * from "./backtesting";
 export * from "./market-data";
 export * from "./exchange-connectivity";
 export * from "./multi-exchange-coordination";
+export * from "./cross-chain-arbitrage";
